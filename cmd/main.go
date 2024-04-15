@@ -15,12 +15,11 @@ import (
 func main() {
 	ctx := context.Background()
 
-	// initialize memoryQueueAdapter
-	memoryQueueAdapter := queue.NewMemoryQueueAdapter()
+	rabbitmqQueueAdapter := queue.NewRabbitMQAdapter("amqp://admin:admin@localhost:5672/")
 
 	// use cases
-	createOrderUseCase := usecase.NewCreateOrderUseCase(memoryQueueAdapter)
-	processPaymentUseCase := usecase.NewProcessOrderPaymentUseCase(memoryQueueAdapter)
+	createOrderUseCase := usecase.NewCreateOrderUseCase(rabbitmqQueueAdapter)
+	processPaymentUseCase := usecase.NewProcessOrderPaymentUseCase(rabbitmqQueueAdapter)
 	stockMovementUseCase := usecase.NewStockMovementUseCase()
 	sendOrderEmailUseCase := usecase.NewSendOrderEmailUseCase()
 
@@ -42,22 +41,22 @@ func main() {
 	// register listeners
 	for eventType, handlers := range list {
 		for _, handler := range handlers {
-			memoryQueueAdapter.ListenerRegister(eventType, handler)
+			rabbitmqQueueAdapter.ListenerRegister(eventType, handler)
 		}
 	}
 
-	// connect memoryQueueAdapter
-	err := memoryQueueAdapter.Connect(ctx)
+	// connect queue
+	err := rabbitmqQueueAdapter.Connect(ctx)
 	if err != nil {
-		log.Fatalf("Error connect memoryQueueAdapter %s", err)
+		log.Fatalf("Error connect queue %s", err)
 	}
-	defer memoryQueueAdapter.Disconnect(ctx)
+	defer rabbitmqQueueAdapter.Disconnect(ctx)
 
 	// start consuming queues
 	OrderCreatedEvent := reflect.TypeOf(event.OrderCreatedEvent{}).Name()
 
 	go func(ctx context.Context, queueName string) {
-		err = memoryQueueAdapter.StartConsuming(ctx, queueName)
+		err = rabbitmqQueueAdapter.StartConsuming(ctx, queueName)
 		if err != nil {
 			log.Fatalf("Error running consumer %s: %s", queueName, err)
 		}
